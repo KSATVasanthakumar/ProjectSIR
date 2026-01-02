@@ -16,6 +16,8 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-icons": "^5.5.0",
+    "react-router": "^7.11.0",
+    "react-router-dom": "^7.11.0",
     "simple-keyboard": "^3.8.93",
     "simple-keyboard-layouts": "^3.4.147",
     "tailwindcss": "^4.1.18"

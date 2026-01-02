@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Header from "../../components/Header";
+
 import axiosInstance from "../../../axiosInstance";
+import { useNavigate } from "react-router-dom";
 
 function HomePage() {
   const [formData, setFormData] = useState({
@@ -23,8 +25,9 @@ function HomePage() {
   const [showModal, setShowModal] = useState(false); // modal state
   const [modalMessage, setModalMessage] = useState(""); // dynamic modal message
 
+  const ipAddress = "128.0.0.58";
   const currentLangAttr = formData.Lang === "K" ? "kn" : "en";
-
+  const navigate = useNavigate();
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -143,6 +146,10 @@ function HomePage() {
     ({ F: "Father", M: "Mother", H: "Husband", W: "Wife", O: "Others" }[r] ||
     "");
 
+  const onEdit = (row) => {
+    console.log("Edit clicked:", row);
+    // open modal / navigate / populate form etc.
+  };
   return (
     <>
       <Header language={formData.Lang} />
@@ -355,6 +362,7 @@ function HomePage() {
               {formData.Lang === "K" ? "ಹುಡುಕಿ" : "Search"}
             </button>
           </div>
+          <span>IP Address : {ipAddress}</span>
         </form>
 
         {/* Modal */}
@@ -429,6 +437,7 @@ function HomePage() {
                         <th className="px-4 py-3 text-left">AC Name</th>
                         <th className="px-4 py-3 text-center">Part No</th>
                         <th className="px-4 py-3 text-center">Sl No In Part</th>
+                        <th className="px-4 py-3 text-center">Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -458,6 +467,30 @@ function HomePage() {
                           <td className="px-4 py-2 text-center">
                             {r.SlNoInpart}
                           </td>
+                          <td className="px-4 py-2 text-center">
+                            <button
+                              onClick={() =>
+                                navigate(`/details/${r.SlNoInpart}`)
+                              }
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-red-100"
+                              title="Edit"
+                            >
+                              {/* Edit pencil icon */}
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="w-5 h-5 text-red-600"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={1.8}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M12 20h9" />
+                                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                              </svg>
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -477,50 +510,79 @@ function HomePage() {
                           {r.Elector_Name}
                         </div>
                       </div>
+
                       <div className="p-4 text-sm text-gray-700">
                         <div className="flex justify-between mb-2">
                           <div>
                             <span className="text-gray-500">AC Name: </span>
                             <span className="font-medium">{r.ACName}</span>
                           </div>
+
                           <span className="px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 border">
                             AC No: {r.AC_No}
                           </span>
                         </div>
+
                         <div className="border-t my-2" />
+
+                        {/* details grid */}
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <div className="text-gray-500">Relation Name</div>
                             <div className="font-medium">{r.Relation_Name}</div>
                           </div>
+
                           <div>
                             <div className="text-gray-500">Age</div>
                             <div className="font-medium">{r.Age}</div>
                           </div>
+
                           <div>
                             <div className="text-gray-500">Gender</div>
-                            <div>
-                              <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
-                                {getGenderText(r.Gender)}
-                              </span>
-                            </div>
+                            <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
+                              {getGenderText(r.Gender)}
+                            </span>
                           </div>
+
                           <div>
                             <div className="text-gray-500">Relationship</div>
-                            <div>
-                              <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
-                                {getRelationText(r.RelationShip)}
-                              </span>
-                            </div>
+                            <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
+                              {getRelationText(r.RelationShip)}
+                            </span>
                           </div>
+
                           <div>
                             <div className="text-gray-500">Part No</div>
                             <div className="font-medium">{r.Part_No}</div>
                           </div>
+
                           <div>
                             <div className="text-gray-500">Sl No In Part</div>
                             <div className="font-medium">{r.SlNoInpart}</div>
                           </div>
+                        </div>
+
+                        {/* action row */}
+                        <div className="mt-3 flex justify-end">
+                          <button
+                            onClick={() => navigate(`/details/${r.SlNoInpart}`)}
+                            className="inline-flex items-center justify-center w-9 h-9 rounded-full hover:bg-red-100"
+                            title="Edit"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="w-5 h-5 text-red-600"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={1.8}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M12 20h9" />
+                              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                            </svg>
+                          </button>
                         </div>
                       </div>
                     </div>

@@ -1,8 +1,37 @@
-import React from "react";
+import { createBrowserRouter, RouterProvider } from "react-router";
 import HomePage from "./screens/Homepage/HomePage";
+import LoginPage from "./screens/Loginpage/LoginPage";
+import PrivateRoute from "./routers/PrivateRoutes";
+import { AuthProvider } from "./context/AuthContext";
+import DetailsPage from "./screens/Detailspage/DetailsPage";
 
-function App() {
-  return <HomePage />;
+const router = createBrowserRouter([
+  {
+    path: "/home",
+    element: (
+      <PrivateRoute>
+        <HomePage />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: "/details/:slno",
+    element: (
+      <PrivateRoute>
+        <DetailsPage />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: "/login",
+    element: <LoginPage />,
+  },
+]);
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
+  );
 }
-
-export default App;
