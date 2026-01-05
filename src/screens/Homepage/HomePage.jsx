@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Header from "../../components/Header";
+import Select from "react-select";
 
 import axiosInstance from "../../../axiosInstance";
 import { useNavigate } from "react-router-dom";
@@ -11,23 +12,102 @@ function HomePage() {
     FirstName: "",
     RelName: "",
     Age: "",
-    Gender: "",
-    RelationShip: "",
-    Choice: "",
-    Option: "",
+    Gender: "M",
+    RelationShip: "F",
+    Choice: "Ex",
+    Option: "AC",
     Value: 0,
   });
 
   const [result, setResult] = useState([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  const [showModal, setShowModal] = useState(false); // modal state
-  const [modalMessage, setModalMessage] = useState(""); // dynamic modal message
+  const [acList, setAcList] = useState([]);
+  const [districtList, setDistrictList] = useState([]);
+  const [query, setQuery] = useState("");
+  const [showList, setShowList] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState("");
 
   const ipAddress = "128.0.0.58";
   const currentLangAttr = formData.Lang === "K" ? "kn" : "en";
   const navigate = useNavigate();
+
+  const filteredAC = acList.filter((ac) =>
+    ac.acNoAcName.toLowerCase().includes(query.toLowerCase())
+  );
+
+  const filteredDistrict = districtList.filter((d) =>
+    d.distNoName.toLowerCase().includes(query.toLowerCase())
+  );
+
+  // ---------- Load from localStorage on first load ----------
+  useEffect(() => {
+    const savedForm = localStorage.getItem("searchForm");
+    const savedResult = localStorage.getItem("searchResult");
+    const savedSearched = localStorage.getItem("searchedFlag");
+
+    if (savedForm) setFormData(JSON.parse(savedForm));
+    if (savedResult) setResult(JSON.parse(savedResult));
+    if (savedSearched) setSearched(JSON.parse(savedSearched));
+  }, []);
+
+  // ---------- Save to localStorage when values change ----------
+  useEffect(() => {
+    localStorage.setItem("searchForm", JSON.stringify(formData));
+  }, [formData]);
+
+  useEffect(() => {
+    localStorage.setItem("searchResult", JSON.stringify(result));
+  }, [result]);
+
+  useEffect(() => {
+    localStorage.setItem("searchedFlag", JSON.stringify(searched));
+  }, [searched]);
+
+  useEffect(() => {
+    const savedResult = sessionStorage.getItem("searchResult");
+    const savedSearched = sessionStorage.getItem("searched");
+
+    if (savedResult && savedSearched) {
+      setResult(JSON.parse(savedResult));
+      setSearched(true);
+    }
+  }, []);
+  useEffect(() => {
+    if (formData.Option === "AC" && acList.length > 0) {
+      // If you want to prefill first AC as default (optional)
+      const firstAC = acList[0];
+      setQuery(firstAC.acNoAcName);
+      handleChange({ target: { name: "Value", value: firstAC.ac_No } });
+    }
+  }, [acList]); // run when acList is loaded
+  // ---------- Reset ----------
+  const handleReset = () => {
+    setFormData({
+      Elector_Name: "",
+      Relation_Name: "",
+      FirstName: "",
+      RelName: "",
+      Age: "",
+      Gender: "M", // <-- default Male
+      RelationShip: "F",
+      AC_No: "",
+      ACName: "",
+      Part_No: "",
+      SlNoInpart: "",
+      Lang: "E",
+      Choice: "Ex",
+      Option: "AC",
+    });
+
+    setResult([]);
+    setSearched(false);
+
+    sessionStorage.removeItem("searchResult");
+    sessionStorage.removeItem("searched");
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -36,6 +116,19 @@ function HomePage() {
         name === "Age" || name === "Value" ? parseInt(value || 0, 10) : value,
     }));
   };
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (formData.Option === "AC") {
+        const res = await axiosInstance.get("/api/revision/aclist");
+        setAcList(res.data);
+      } else if (formData.Option === "District") {
+        const res = await axiosInstance.get("/api/revision/districts");
+        setDistrictList(res.data);
+      }
+    };
+    loadData();
+  }, [formData.Option]);
 
   const handleDuplicationChange = (e) => {
     const value = e.target.value;
@@ -71,7 +164,6 @@ function HomePage() {
       default:
         mainType = "";
         subType = "";
-        break;
     }
 
     setFormData((prev) => ({
@@ -88,25 +180,23 @@ function HomePage() {
     const missingFields = [];
 
     if (!formData.FirstName) missingFields.push("Name");
-    if (!formData.Gender) missingFields.push("Gender");
+    if (!formData.RelName) missingFields.push("RelName");
+    if (!formData.Gender) missingFields.push("Gender"); // mandatory
     if (!formData.RelationShip) missingFields.push("Relationship");
     if (!formData.Choice) missingFields.push("Duplication Type");
 
-    // Age validation
+    // Age is optional now
     const age = parseInt(formData.Age, 10);
-    if (isNaN(age) || age < 18 || age > 110) {
-      missingFields.push("Age (18-110)");
+    if (formData.Age && (isNaN(age) || age < 18 || age > 110)) {
+      missingFields.push("Age (18-110)"); // only validate if user entered a value
     }
 
-    // AC/District No validation
     if (formData.Option === "AC") {
-      if (formData.Value < 1 || formData.Value > 224) {
+      if (formData.Value < 1 || formData.Value > 224)
         missingFields.push("AC No (1-224)");
-      }
     } else if (formData.Option === "District") {
-      if (formData.Value < 1 || formData.Value > 27) {
+      if (formData.Value < 1 || formData.Value > 27)
         missingFields.push("District No (1-27)");
-      }
     }
 
     if (missingFields.length > 0) {
@@ -127,12 +217,15 @@ function HomePage() {
         "/api/revision/search",
         formData
       );
+
       const data = response.data;
 
       setResult(Array.isArray(data) ? data : data ? [data] : []);
       setSearched(true);
-    } catch (error) {
-      console.error("Error fetching data:", error);
+      sessionStorage.setItem("searchResult", JSON.stringify(response.data));
+      sessionStorage.setItem("searched", "true");
+    } catch (err) {
+      console.error(err);
       setResult([]);
       setSearched(true);
     } finally {
@@ -146,10 +239,6 @@ function HomePage() {
     ({ F: "Father", M: "Mother", H: "Husband", W: "Wife", O: "Others" }[r] ||
     "");
 
-  const onEdit = (row) => {
-    console.log("Edit clicked:", row);
-    // open modal / navigate / populate form etc.
-  };
   return (
     <>
       <Header language={formData.Lang} />
@@ -213,7 +302,9 @@ function HomePage() {
             <div className="flex flex-col w-full md:w-56">
               <label className="text-sm font-light">
                 {formData.Lang === "K" ? "ಹೆಸರು" : "Name"}
+                <span className="text-red-500 ml-1">*</span>
               </label>
+
               <input
                 lang={currentLangAttr}
                 type="text"
@@ -221,13 +312,14 @@ function HomePage() {
                 value={formData.FirstName}
                 maxLength={75}
                 onChange={handleChange}
-                className="border px-3 py-2 rounded"
+                className="border px-3 py-2 rounded outline-none border-red-300 focus:border-red-500"
               />
             </div>
 
             <div className="flex flex-col w-full md:w-56">
               <label className="text-sm font-light">
                 {formData.Lang === "K" ? "ಸಂಬಂಧ ಹೆಸರು" : "Relation Name"}
+                <span className="text-red-500 ml-1">*</span>
               </label>
               <input
                 lang={currentLangAttr}
@@ -236,7 +328,7 @@ function HomePage() {
                 value={formData.RelName}
                 maxLength={100}
                 onChange={handleChange}
-                className="border px-3 py-2 rounded"
+                className="border px-3 py-2 rounded outline-none border-red-300 focus:border-red-500"
               />
             </div>
 
@@ -259,12 +351,13 @@ function HomePage() {
             <div className="flex flex-col w-full md:w-32">
               <label className="text-sm font-light">
                 {formData.Lang === "K" ? "ಲಿಂಗ" : "Gender"}
+                <span className="text-red-500 ml-1">*</span>
               </label>
               <select
                 name="Gender"
                 value={formData.Gender}
                 onChange={handleChange}
-                className="border px-3 py-2 rounded"
+                className="border px-3 py-2 rounded outline-none border-red-300 focus:border-red-500"
               >
                 <option value="">
                   {formData.Lang === "K" ? "ಆರಿಸಿ" : "Select"}
@@ -314,9 +407,24 @@ function HomePage() {
           <div className="flex flex-wrap gap-4 justify-center items-start">
             <div className="flex flex-col w-full md:w-64">
               <label className="text-sm font-light">
-                {formData.Lang === "K" ? "ನಕಲಿ ಪ್ರಕಾರ" : "Duplication Type"}
+                {formData.Lang === "K" ? "ನಕಲಿ ಪ್ರಕಾರ" : "Search Type"}
               </label>
               <select
+                value={
+                  formData.Choice === "Ex" && formData.Option === "AC"
+                    ? "1"
+                    : formData.Choice === "Ex" && formData.Option === "District"
+                    ? "2"
+                    : formData.Choice === "Pr" && formData.Option === "AC"
+                    ? "3"
+                    : formData.Choice === "Pr" && formData.Option === "District"
+                    ? "4"
+                    : formData.Choice === "Ex" && formData.Option === "State"
+                    ? "5"
+                    : formData.Choice === "Pr" && formData.Option === "State"
+                    ? "6"
+                    : ""
+                }
                 onChange={handleDuplicationChange}
                 className="border px-3 py-2 rounded"
               >
@@ -337,20 +445,89 @@ function HomePage() {
                 <label className="text-sm font-light">
                   {formData.Option === "AC" ? "AC No" : "District No"}
                 </label>
-                <input
-                  type="number"
-                  name="Value"
-                  value={formData.Value || ""}
-                  onChange={handleChange}
-                  min={formData.Option === "AC" ? 1 : 1}
-                  max={formData.Option === "AC" ? 224 : 27}
-                  className="border px-3 py-2 rounded"
-                />
+
+                {/* ************** AC TYPEAHEAD ************** */}
+                {formData.Option === "AC" && (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      className="border px-3 py-2 rounded w-full"
+                      placeholder="Search AC…"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      onFocus={() => setShowList(true)}
+                    />
+
+                    {showList && (
+                      <div className="absolute bg-white border w-full max-h-52 overflow-y-auto z-10 rounded">
+                        {filteredAC.map((ac) => (
+                          <div
+                            key={ac.ac_No}
+                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                            onClick={() => {
+                              setQuery(ac.acNoAcName);
+                              handleChange({
+                                target: { name: "Value", value: ac.ac_No },
+                              });
+                              setShowList(false);
+                            }}
+                          >
+                            {ac.acNoAcName}
+                          </div>
+                        ))}
+                        {filteredAC.length === 0 && (
+                          <div className="px-3 py-2 text-gray-400">
+                            No results
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ************** DISTRICT TYPEAHEAD ************** */}
+                {formData.Option === "District" && (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      className="border px-3 py-2 rounded w-full"
+                      placeholder="Search District…"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      onFocus={() => setShowList(true)}
+                    />
+
+                    {showList && (
+                      <div className="absolute bg-white border w-full max-h-52 overflow-y-auto z-10 rounded">
+                        {filteredDistrict.map((d) => (
+                          <div
+                            key={d.district_No}
+                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                            onClick={() => {
+                              setQuery(d.distNoName);
+                              handleChange({
+                                target: { name: "Value", value: d.district_No },
+                              });
+                              setShowList(false);
+                            }}
+                          >
+                            {d.distNoName}
+                          </div>
+                        ))}
+                        {filteredDistrict.length === 0 && (
+                          <div className="px-3 py-2 text-gray-400">
+                            No results
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          <div className="flex justify-center mt-4">
+          <div className="flex justify-center mt-4 gap-3">
             <button
               type="submit"
               disabled={loading}
@@ -360,6 +537,13 @@ function HomePage() {
                 <span className="loader-border h-4 w-4 rounded-full border-2 border-t-white animate-spin"></span>
               )}
               {formData.Lang === "K" ? "ಹುಡುಕಿ" : "Search"}
+            </button>
+            <button
+              type="button"
+              onClick={handleReset}
+              className="bg-gray-300 px-6 py-2 rounded hover:bg-gray-400"
+            >
+              {formData.Lang === "K" ? "ಮರುಹೊಂದಿಸು" : "Reset"}
             </button>
           </div>
           <span>IP Address : {ipAddress}</span>
@@ -410,7 +594,7 @@ function HomePage() {
           )}
         </AnimatePresence>
         {/* Results Section */}
-        {searched && !loading && (
+        {searched && result.length > 0 && (
           <div className="mt-6">
             {result.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12">
@@ -470,7 +654,9 @@ function HomePage() {
                           <td className="px-4 py-2 text-center">
                             <button
                               onClick={() =>
-                                navigate(`/details/${r.SlNoInpart}`)
+                                navigate(`/details/${r.SlNoInpart}`, {
+                                  state: r,
+                                })
                               }
                               className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-red-100"
                               title="Edit"
@@ -565,7 +751,9 @@ function HomePage() {
                         {/* action row */}
                         <div className="mt-3 flex justify-end">
                           <button
-                            onClick={() => navigate(`/details/${r.SlNoInpart}`)}
+                            onClick={() =>
+                              navigate(`/details/${r.SlNoInpart}`, { state: r })
+                            }
                             className="inline-flex items-center justify-center w-9 h-9 rounded-full hover:bg-red-100"
                             title="Edit"
                           >
